@@ -270,6 +270,18 @@ table {
   }
 }
 
+/// LOGIN EXTERNAL INLINE LIST ///
+#external_list
+{
+  margin: 0;
+  padding: 0;
+  margin-right: 10px;
+  list-style-type: none;
+  text-align: left;
+
+  li { display: inline-block; }
+}
+
 /// SESSIONS ///
 .sessions, .logout {
   width: 800px;

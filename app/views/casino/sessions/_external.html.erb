@@ -1,0 +1,17 @@
+<% unless @external_authenticators.nil? %>
+  <% if @external_authenticators.any? %>
+    <ul id="external_list">
+    <% @external_authenticators.each do |authenticator_name, authenticator| %>
+      <% unless authenticator.view.nil? %>
+        <li>
+          <%= form_tag(login_path, method: :post) do %>
+            <%= hidden_field_tag :lt, @login_ticket %>
+            <%= hidden_field_tag :external, authenticator_name %>
+            <%= render authenticator.view, :authenticator => authenticator %>
+          <% end %>
+        </li>
+      <% end %>
+    <% end %>
+    </ul>
+  <% end%>
+<% end%>

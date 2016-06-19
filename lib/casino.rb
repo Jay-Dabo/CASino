@@ -6,6 +6,7 @@ module CASino
 
   defaults = {
     authenticators: HashWithIndifferentAccess.new,
+    external_authenticators: HashWithIndifferentAccess.new,
     require_service_rules: false,
     logger: Rails.logger,
     frontend: HashWithIndifferentAccess.new(

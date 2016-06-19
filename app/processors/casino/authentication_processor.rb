@@ -4,13 +4,28 @@ module CASino::AuthenticationProcessor
   extend ActiveSupport::Concern
 
   def validate_login_credentials(username, password)
+    validate :authenticators do |authenticator_name, authenticator|
+      authenticator.validate(username, password)
+    end
+  end
+
+  def validate_external_credentials(params, cookies)
+    validate :external_authenticators do |authenticator_name, authenticator|
+      if authenticator_name == params[:external]
+        authenticator.validate(params, cookies)
+      end
+    end
+  end
+
+  def validate(type, &validator)
     authentication_result = nil
-    authenticators.each do |authenticator_name, authenticator|
+    authenticators(type).each do |authenticator_name, authenticator|
       begin
-        data = authenticator.validate(username, password)
+        data = validator.call(authenticator_name, authenticator)
       rescue CASino::Authenticator::AuthenticatorError => e
         Rails.logger.error "Authenticator '#{authenticator_name}' (#{authenticator.class}) raised an error: #{e}"
       end
+
       if data
         authentication_result = { authenticator: authenticator_name, user_data: data }
         Rails.logger.info("Credentials for username '#{data[:username]}' successfully validated using authenticator '#{authenticator_name}' (#{authenticator.class})")
@@ -21,15 +36,17 @@ module CASino::AuthenticationProcessor
   end
 
   def load_user_data(authenticator_name, username)
-    authenticator = authenticators[authenticator_name]
+    authenticator = authenticators(:authenticators)[authenticator_name]
     return nil if authenticator.nil?
     return nil unless authenticator.respond_to?(:load_user_data)
     authenticator.load_user_data(username)
   end
 
-  def authenticators
-    @authenticators ||= {}.tap do |authenticators|
-      CASino.config[:authenticators].each do |name, auth|
+  def authenticators(type)
+    authenticators ||= {}
+    return authenticators[type] if authenticators.has_key?(type)
+    authenticators[type] = begin
+      CASino.config[type].each do |name, auth|
         next unless auth.is_a?(Hash)
 
         authenticator = if auth[:class]
@@ -38,7 +55,7 @@ module CASino::AuthenticationProcessor
                           load_authenticator(auth[:authenticator])
                         end
 
-        authenticators[name] = authenticator.new(auth[:options])
+        CASino.config[type][name] = authenticator.new(auth[:options])
       end
     end
   end

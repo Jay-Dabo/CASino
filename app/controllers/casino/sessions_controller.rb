@@ -3,7 +3,6 @@ class CASino::SessionsController < CASino::ApplicationController
   include CASino::AuthenticationProcessor
   include CASino::TwoFactorAuthenticatorProcessor
 
-  before_action :validate_login_ticket, only: [:create]
   before_action :ensure_service_allowed, only: [:new, :create]
   before_action :load_ticket_granting_ticket_from_parameter, only: [:validate_otp]
   before_action :ensure_signed_in, only: [:index, :destroy]
@@ -15,18 +14,21 @@ class CASino::SessionsController < CASino::ApplicationController
   end
 
   def new
+    @external_authenticators = authenticators(:external_authenticators)
+    @login_ticket = CASino::LoginTicket.create.ticket
     tgt = current_ticket_granting_ticket
     return handle_signed_in(tgt) unless params[:renew] || tgt.nil?
     redirect_to(params[:service]) if params[:gateway] && params[:service].present?
   end
 
   def create
-    validation_result = validate_login_credentials(params[:username], params[:password])
-    if !validation_result
-      log_failed_login params[:username]
-      show_login_error I18n.t('login_credential_acceptor.invalid_login_credentials')
+    if CASino::LoginTicket.consume(params[:lt])
+      logger.debug "params[:lt]: #{params[:lt]} successfully validated"
+      authenticate_user
     else
-      sign_in(validation_result, long_term: params[:rememberMe], credentials_supplied: true)
+      external_authenticators = authenticators(:external_authenticators)
+      log_failed_login params[:username]
+      show_login_error(I18n.t('login_credential_acceptor.invalid_login_credentials'), external_authenticators)
     end
   end
 
@@ -62,15 +64,29 @@ class CASino::SessionsController < CASino::ApplicationController
 
   private
 
-  def show_login_error(message)
-    flash.now[:error] = message
-    render :new, status: :forbidden
+  def validate_credentials
+    if params[:external]
+      validate_external_credentials(params, cookies)
+    else
+      validate_login_credentials(params[:username], params[:password])
+    end
   end
 
-  def validate_login_ticket
-    unless CASino::LoginTicket.consume(params[:lt])
-      show_login_error I18n.t('login_credential_acceptor.invalid_login_ticket')
+  def authenticate_user
+    validation_result = validate_credentials
+    if !validation_result.nil?
+      sign_in(validation_result, long_term: params[:rememberMe], credentials_supplied: true)
+    else
+      external_authenticators = authenticators(:external_authenticators)
+      log_failed_login params[:username]
+      show_login_error(I18n.t('login_credential_acceptor.invalid_login_credentials'), external_authenticators)
     end
+  end
+
+  def show_login_error(message, external_authenticators)
+    flash.now[:error] = message
+    @external_authenticators = external_authenticators
+    render :new, status: :forbidden
   end
 
   def ensure_service_allowed

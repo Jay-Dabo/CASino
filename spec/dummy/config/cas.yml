@@ -22,6 +22,14 @@ defaults: &defaults
               - "StarCraft 2"
               - "Doto"
 
+  external_authenticators:
+    external_static:
+      class: "CASino::StaticExternalAuthenticator"
+      options:
+        users:
+          foobar123:
+            username: "foobar"
+            name: "Test User"
 development:
   <<: *defaults
 
