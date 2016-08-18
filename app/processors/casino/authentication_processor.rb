@@ -3,9 +3,9 @@ require 'casino/authenticator'
 module CASino::AuthenticationProcessor
   extend ActiveSupport::Concern
 
-  def validate_login_credentials(username, password)
+  def validate_login_credentials(username, password, geetest_challenge='', geetest_validate='', geetest_seccode='')
     validate :authenticators do |authenticator_name, authenticator|
-      authenticator.validate(username, password)
+      authenticator.validate(username, password, geetest_challenge, geetest_validate, geetest_seccode)
     end
   end
 

@@ -68,7 +68,12 @@ class CASino::SessionsController < CASino::ApplicationController
     if params[:external]
       validate_external_credentials(params, cookies)
     else
-      validate_login_credentials(params[:username], params[:password])
+      if params[:geetest_challenge].present? && params[:geetest_validate].present? && params[:geetest_seccode].present?
+        validate_login_credentials(params[:username], params[:password], params[:geetest_challenge], params[:geetest_validate], params[:geetest_seccode])
+      else
+        validate_login_credentials(params[:username], params[:password])
+      end
+
     end
   end
 
